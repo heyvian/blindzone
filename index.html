@@ -62,9 +62,9 @@
     #sidebar-right:active { transform: scale(0.98); background: #fafafa; }
     
     .panel-title { font-size: 10px; font-weight: 800; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
-    #queue-visuals { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 15px; }
+    #queue-visuals { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 15px; pointer-events: none; }
     
-    .key-hint { font-size: 11px; color: #666; background: #f0f0f0; padding: 8px; border-radius: 8px; font-weight: 600; line-height: 1.4; }
+    .key-hint { font-size: 11px; color: #666; background: #f0f0f0; padding: 8px; border-radius: 8px; font-weight: 600; line-height: 1.4; pointer-events: none; }
     .key { background: #fff; border: 1px solid #ccc; padding: 2px 6px; border-radius: 4px; box-shadow: 0 2px 0 #ddd; color: #111; }
     
     .btn-toggle-stance {
@@ -72,6 +72,7 @@
       background: #333; color: white; border: none; 
       border-radius: 6px; font-weight: 700; font-size: 10px;
       text-transform: uppercase; letter-spacing: 0.5px;
+      pointer-events: none; /* Let the parent div handle the click */
     }
 
     /* --- PERMANENT INSTRUCTIONS --- */
@@ -192,7 +193,7 @@
   <p>How many children can you place before the driver spots them and is unable to drive away?</p>
 </div>
 
-<div id="sidebar-right">
+<div id="sidebar-right" onclick="toggleStance()">
   <div class="panel-title">Next Up</div>
   <div id="queue-visuals"></div> 
   <div class="key-hint">Press <span class="key">S</span><br>or Click Panel</div>
@@ -240,7 +241,7 @@
 /* =========================================
    1. CONFIGURATION & DATA
    ========================================= */
-let SCALE = 48; // Now a LET, calculated dynamically
+let SCALE = 48; 
 const GROUND_OFFSET = 50;
 
 // Vehicle Data
@@ -293,6 +294,9 @@ let ghostPos = { x: 0, y: 0, valid: false, visible: false };
 let isSitting = false; 
 let isAboutOpen = false;
 
+// Debounce variable to fix double-taps
+let lastInputTime = 0;
+
 /* =========================================
    3. EXPOSED UI FUNCTIONS
    ========================================= */
@@ -312,6 +316,16 @@ window.toggleFullscreen = function() {
     }
   }
 };
+// Updated Toggle Stance with Debounce
+window.toggleStance = function() {
+  if (millis() - lastInputTime < 200) return; // Ignore if triggered too recently
+  lastInputTime = millis();
+  
+  isSitting = !isSitting;
+  updateQueueUI();
+  setTimeout(checkIfNextPieceFits, 50);
+}
+
 window.startChaosSequence = startChaosSequence;
 window.resetSim = resetSim;
 window.changeVehicle = changeVehicle;
@@ -327,8 +341,6 @@ function preload() {
 }
 
 function calculateScale() {
-  // Goal: Fit about 22 feet of horizontal scene into the screen width
-  // Minimum scale: 30px/ft, Maximum scale: 60px/ft
   SCALE = constrain(windowWidth / 22, 30, 60);
 }
 
@@ -408,12 +420,10 @@ function draw() {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  calculateScale(); // Recalculate scale on resize
+  calculateScale(); 
   World.remove(world, ground);
   ground = Bodies.rectangle(width/2, height, width, 100, { isStatic: true });
   World.add(world, ground);
-  
-  // Re-check valid placement as screen dims changed
   setTimeout(checkIfNextPieceFits, 100);
 }
 
@@ -421,29 +431,31 @@ function windowResized() {
    5. INPUT HANDLING
    ========================================= */
 function keyPressed() {
+  // Add debounce to key press too
+  if (millis() - lastInputTime < 200) return;
+  
   if ((key === 's' || key === 'S') && !isAboutOpen) {
-    toggleStance();
+    window.toggleStance();
   }
-}
-
-function toggleStance() {
-  isSitting = !isSitting;
-  updateQueueUI();
-  setTimeout(checkIfNextPieceFits, 50);
 }
 
 function mousePressed() {
   if (gameState !== "PLAYING") return;
   if (isAboutOpen) return;
   if (mouseY < 80) return; 
-  
-  if (mouseX > width - 150 && mouseY > 80) {
-    toggleStance();
+
+  // Protection: If clicking ANY UI element, ignore this click in canvas logic
+  // This prevents clicking the sidebar from also placing a child
+  if (event && event.target.closest('#sidebar-right, .btn-hud, .vehicle-selector')) {
     return;
   }
+  
+  // Debounce check for placement
+  if (millis() - lastInputTime < 200) return;
 
   if (ghostPos.visible) return; 
   if (ghostPos.valid) {
+    lastInputTime = millis(); // Record usage
     let typeIndex = objQueue.shift();
     let next = objects[typeIndex];
     objQueue.push(floor(random(objects.length)));
@@ -486,7 +498,7 @@ function drawBlindZoneOverlay(bumperX, groundY, zoneEndX, veh) {
 
 function drawProceduralCar(x, y, veh, isPhysicsBody) {
   fill(40); noStroke();
-  let hoodW = 200 * (SCALE/48); // Scale car parts slightly with global scale
+  let hoodW = 200 * (SCALE/48); 
   let cabinW = 120 * (SCALE/48); 
   let hPx = veh.hoodH * SCALE;
   
@@ -734,5 +746,3 @@ function resetSim() {
 </script>
 </body>
 </html>
-
-
