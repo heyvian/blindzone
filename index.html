@@ -294,8 +294,9 @@ let ghostPos = { x: 0, y: 0, valid: false, visible: false };
 let isSitting = false; 
 let isAboutOpen = false;
 
-// Debounce variable to fix double-taps
+// Input tracking
 let lastInputTime = 0;
+let validTouchStarted = false; // Flag to track if touch started on canvas
 
 /* =========================================
    3. EXPOSED UI FUNCTIONS
@@ -316,9 +317,8 @@ window.toggleFullscreen = function() {
     }
   }
 };
-// Updated Toggle Stance with Debounce
 window.toggleStance = function() {
-  if (millis() - lastInputTime < 200) return; // Ignore if triggered too recently
+  if (millis() - lastInputTime < 200) return; 
   lastInputTime = millis();
   
   isSitting = !isSitting;
@@ -428,34 +428,57 @@ function windowResized() {
 }
 
 /* =========================================
-   5. INPUT HANDLING
+   5. INPUT HANDLING (UPDATED)
    ========================================= */
+
+// Prevent scrolling on mobile touches
+function touchStarted() {
+  // Only prevent default if we are tapping the canvas area, not the UI
+  if (event && !event.target.closest('#sidebar-right, .btn-hud, .vehicle-selector')) {
+    return false; 
+  }
+}
+
 function keyPressed() {
-  // Add debounce to key press too
   if (millis() - lastInputTime < 200) return;
-  
   if ((key === 's' || key === 'S') && !isAboutOpen) {
     window.toggleStance();
   }
 }
 
+// 1. TOUCH START: Just validate the touch
 function mousePressed() {
   if (gameState !== "PLAYING") return;
   if (isAboutOpen) return;
-  if (mouseY < 80) return; 
-
-  // Protection: If clicking ANY UI element, ignore this click in canvas logic
-  // This prevents clicking the sidebar from also placing a child
+  
+  // If clicking UI, do not start a valid drag
   if (event && event.target.closest('#sidebar-right, .btn-hud, .vehicle-selector')) {
+    validTouchStarted = false;
     return;
   }
   
-  // Debounce check for placement
+  // If clicking header area
+  if (mouseY < 80) {
+    validTouchStarted = false;
+    return;
+  }
+  
+  // If we are here, we are touching the canvas validly
+  validTouchStarted = true;
+}
+
+// 2. TOUCH END: Place the piece
+function mouseReleased() {
+  if (!validTouchStarted) return; // Ignore if touch started on UI
+  if (gameState !== "PLAYING") return;
+
+  // Debounce check
   if (millis() - lastInputTime < 200) return;
 
-  if (ghostPos.visible) return; 
+  if (ghostPos.visible) return; // Don't place if red (visible)
+  
   if (ghostPos.valid) {
-    lastInputTime = millis(); // Record usage
+    lastInputTime = millis();
     let typeIndex = objQueue.shift();
     let next = objects[typeIndex];
     objQueue.push(floor(random(objects.length)));
@@ -463,6 +486,8 @@ function mousePressed() {
     spawnObject(ghostPos.x, ghostPos.y, next, isSitting);
     setTimeout(checkIfNextPieceFits, 50); 
   }
+  
+  validTouchStarted = false; // Reset flag
 }
 
 /* =========================================
@@ -746,3 +771,4 @@ function resetSim() {
 </script>
 </body>
 </html>
+
