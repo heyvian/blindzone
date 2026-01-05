@@ -72,7 +72,7 @@
       background: #333; color: white; border: none; 
       border-radius: 6px; font-weight: 700; font-size: 10px;
       text-transform: uppercase; letter-spacing: 0.5px;
-      pointer-events: none; /* Let the parent div handle the click */
+      pointer-events: none; 
     }
 
     /* --- PERMANENT INSTRUCTIONS --- */
@@ -296,7 +296,7 @@ let isAboutOpen = false;
 
 // Input tracking
 let lastInputTime = 0;
-let validTouchStarted = false; // Flag to track if touch started on canvas
+let validTouchStarted = false; // Tracks if the current gesture started on canvas
 
 /* =========================================
    3. EXPOSED UI FUNCTIONS
@@ -428,16 +428,8 @@ function windowResized() {
 }
 
 /* =========================================
-   5. INPUT HANDLING (UPDATED)
+   5. INPUT HANDLING
    ========================================= */
-
-// Prevent scrolling on mobile touches
-function touchStarted() {
-  // Only prevent default if we are tapping the canvas area, not the UI
-  if (event && !event.target.closest('#sidebar-right, .btn-hud, .vehicle-selector')) {
-    return false; 
-  }
-}
 
 function keyPressed() {
   if (millis() - lastInputTime < 200) return;
@@ -446,36 +438,33 @@ function keyPressed() {
   }
 }
 
-// 1. TOUCH START: Just validate the touch
-function mousePressed() {
+// 1. PRESS: Validate start of touch (AIM)
+function mousePressed(e) {
   if (gameState !== "PLAYING") return;
   if (isAboutOpen) return;
   
-  // If clicking UI, do not start a valid drag
-  if (event && event.target.closest('#sidebar-right, .btn-hud, .vehicle-selector')) {
+  // Ignore clicks on UI elements
+  if (e && e.target.closest('#sidebar-right, .btn-hud, .vehicle-selector')) {
     validTouchStarted = false;
     return;
   }
   
-  // If clicking header area
   if (mouseY < 80) {
     validTouchStarted = false;
     return;
   }
   
-  // If we are here, we are touching the canvas validly
   validTouchStarted = true;
 }
 
-// 2. TOUCH END: Place the piece
+// 2. RELEASE: Commit placement (FIRE)
 function mouseReleased() {
-  if (!validTouchStarted) return; // Ignore if touch started on UI
+  if (!validTouchStarted) return; 
   if (gameState !== "PLAYING") return;
 
-  // Debounce check
   if (millis() - lastInputTime < 200) return;
 
-  if (ghostPos.visible) return; // Don't place if red (visible)
+  if (ghostPos.visible) return; // Cannot place if visible (red)
   
   if (ghostPos.valid) {
     lastInputTime = millis();
@@ -487,7 +476,7 @@ function mouseReleased() {
     setTimeout(checkIfNextPieceFits, 50); 
   }
   
-  validTouchStarted = false; // Reset flag
+  validTouchStarted = false; 
 }
 
 /* =========================================
@@ -771,4 +760,3 @@ function resetSim() {
 </script>
 </body>
 </html>
-
