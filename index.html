@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Blind Zone Challenge</title>
+  <title>The Blind Zone</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
@@ -20,9 +20,9 @@
       z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.03);
     }
 
-    .brand { display: flex; flex-direction: column; min-width: 200px; }
-    .brand h1 { margin: 0; font-size: 22px; font-weight: 900; color: #111; letter-spacing: -0.5px; line-height: 1; }
-    .brand span { font-size: 10px; color: #d32f2f; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+    .brand { display: flex; flex-direction: column; min-width: 250px; }
+    .brand h1 { margin: 0; font-size: 24px; font-weight: 900; color: #111; letter-spacing: -1px; line-height: 1; font-style: italic; }
+    .brand span { font-size: 11px; color: #d32f2f; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
 
     .score-container { text-align: center; position: absolute; left: 50%; transform: translateX(-50%); }
     .score-val { font-size: 32px; font-weight: 900; color: #111; line-height: 1; }
@@ -57,6 +57,15 @@
     
     .key-hint { font-size: 12px; color: #666; background: #f0f0f0; padding: 10px; border-radius: 8px; font-weight: 600; line-height: 1.4; }
     .key { background: #fff; border: 1px solid #ccc; padding: 2px 6px; border-radius: 4px; box-shadow: 0 2px 0 #ddd; color: #111; }
+
+    /* --- PERMANENT INSTRUCTIONS (SKY TEXT) --- */
+    #sky-text {
+      position: absolute; top: 120px; width: 100%;
+      text-align: center; pointer-events: none; z-index: 10;
+      color: #999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    #sky-text h3 { margin: 0 0 8px 0; font-size: 18px; font-weight: 800; color: #777; width: 60%; line-height: 1.3; }
+    #sky-text p { margin: 0; font-size: 14px; font-weight: 500; color: #999; width: 60%; line-height: 1.4; }
 
     /* --- OVERLAYS --- */
     #overlay-container {
@@ -123,8 +132,8 @@
 
 <div id="hud-top">
   <div class="brand">
-    <h1>BLIND ZONE</h1>
-    <span>ADVOCACY SIMULATOR</span>
+    <h1>THE BLIND ZONE</h1>
+    <span>FORWARD VISIBILITY OPTIONAL</span>
   </div>
   
   <div class="score-container">
@@ -138,6 +147,11 @@
     </button>
     <select id="vehicleSelect" class="vehicle-selector" onchange="changeVehicle()"></select>
   </div>
+</div>
+
+<div id="sky-text">
+  <h3>The driver has places to be and needs to leave! Children also want to be able to play.</h3>
+  <p>How many children can you place playing so the driver can still leave without seeing them?</p>
 </div>
 
 <div id="sidebar-right">
@@ -186,7 +200,7 @@
 /* =========================================
    1. CONFIGURATION & DATA
    ========================================= */
-const SCALE = 48; // 48 pixels = 1 foot
+const SCALE = 48; // 48 pixels = 1 foot (4px per inch)
 const GROUND_OFFSET = 50;
 
 // Vehicle Data
@@ -200,35 +214,27 @@ const vehicles = {
   "Toyota Camry":      { blindFt: 3.25,  hoodH: 2.8, type: "SEDAN" }
 };
 
-// Child Data
-// !!! UPDATE HERE FOR SVGs !!!
-// 1. Upload your SVG to your project folder.
-// 2. Paste the filename in 'srcStand' or 'srcSit'.
-// 3. If left null, it will default to the colored rectangle.
+// Child Data (With SVG Hooks)
 const objects = [
   { 
     label: "Toddler", desc: "2yo", color: "#BA68C8", age: 2, 
     stand: { w: 0.75, h: 2.8 }, sit: { w: 1.2, h: 1.8 },
-    srcStand: null, // e.g. "assets/toddler_stand.svg"
-    srcSit: null    // e.g. "assets/toddler_sit.svg"
+    srcStand: null, srcSit: null 
   },
   { 
     label: "Preschooler", desc: "4yo", color: "#E91E63", age: 4, 
     stand: { w: 0.8, h: 3.3 }, sit: { w: 1.4, h: 2.0 },
-    srcStand: null,
-    srcSit: null
+    srcStand: null, srcSit: null
   },
   { 
     label: "1st Grader", desc: "6yo", color: "#3F51B5", age: 6, 
     stand: { w: 0.9, h: 3.8 }, sit: { w: 1.6, h: 2.2 },
-    srcStand: null,
-    srcSit: null
+    srcStand: null, srcSit: null
   },
   { 
     label: "2nd Grader", desc: "8yo", color: "#2196F3", age: 8, 
     stand: { w: 0.95, h: 4.2 }, sit: { w: 1.7, h: 2.3 },
-    srcStand: null,
-    srcSit: null
+    srcStand: null, srcSit: null
   }
 ];
 
@@ -260,10 +266,8 @@ window.resetSim = resetSim;
 window.changeVehicle = changeVehicle;
 
 /* =========================================
-   4. P5.JS LIFECYCLE (Preload, Setup, Draw)
+   4. P5.JS LIFECYCLE
    ========================================= */
-
-// Preload is vital for SVGs/Images. It runs before setup.
 function preload() {
   for (let obj of objects) {
     if (obj.srcStand) obj.loadedStand = loadImage(obj.srcStand);
@@ -299,7 +303,7 @@ function draw() {
   let veh = vehicles[currentVeh];
   let zoneLenPx = veh.blindFt * SCALE;
   let groundY = height - GROUND_OFFSET;
-  let bumperX = width * 0.35; 
+  let bumperX = width * 0.25; // Adjusted to left for more screen space
   let zoneEndX = bumperX + zoneLenPx;
   
   // A. Draw Blind Zone Overlay
@@ -325,7 +329,6 @@ function draw() {
     let dims = b.isSitting ? type.sit : type.stand;
     if(gameState === "PLAYING") currentScore++;
     push(); translate(pos.x, pos.y); rotate(b.body.angle);
-    // Updated: Pass the full 'type' object, not just color
     drawMeeple(0, 0, dims.w*SCALE, dims.h*SCALE, type, b.isSitting);
     pop();
   }
@@ -380,7 +383,7 @@ function mousePressed() {
 }
 
 /* =========================================
-   6. VISUAL HELPER FUNCTIONS (Rendering)
+   6. VISUAL HELPER FUNCTIONS
    ========================================= */
 function drawBlindZoneOverlay(bumperX, groundY, zoneEndX, veh) {
     let eyeX = bumperX - (2 * SCALE); 
@@ -430,17 +433,13 @@ function drawProceduralCar(x, y, veh, isPhysicsBody) {
   quad(x - hoodW, y - hPx, x - hoodW + 20, y - hPx - 40, x - hoodW - 60, y - hPx - 40, x - hoodW - 60, y - hPx);
 }
 
-// UPDATED: Now supports SVGs or procedural fallback
 function drawMeeple(x, y, w, h, typeData, sitting) {
   let img = sitting ? typeData.loadedSit : typeData.loadedStand;
 
-  // 1. If an image is loaded, draw it
   if (img) {
     imageMode(CENTER);
     image(img, 0, 0, w, h);
-  } 
-  // 2. Otherwise, use the old procedural rectangle drawing
-  else {
+  } else {
     rectMode(CENTER); noStroke(); fill(typeData.color);
     let headSize = w * 0.7; let bodyH = h - headSize;
     rect(0, (headSize/2), w, bodyH, 4);
@@ -451,7 +450,7 @@ function drawMeeple(x, y, w, h, typeData, sitting) {
 }
 
 /* =========================================
-   7. CORE GAME LOGIC (Stacking & LOS)
+   7. CORE GAME LOGIC
    ========================================= */
 function getBestY(gx, objW, objH, groundY, targetY) {
   let blockers = [];
@@ -495,19 +494,15 @@ function drawGhost(bumperX, zoneEndX, groundY, eX, eY, slope, next) {
   
   push(); translate(gx, gy);
   
-  // Ghost Drawing (Uses SVGs if available)
   if (visible) {
-     // Red tint if visible
      tint(255, 50, 50, 180);
      drawMeeple(0, 0, objW, objH, next, isSitting);
   } else {
-     // Ghostly transparency if valid
      tint(255, 255, 255, 150);
      drawMeeple(0, 0, objW, objH, next, isSitting);
   }
-  noTint(); // Reset tint for other draws
+  noTint();
 
-  // Info Label
   fill(50); noStroke(); textAlign(CENTER); textSize(12); textStyle(BOLD);
   let stance = isSitting ? "Sit" : "Stand";
   let hFt = (dims.h).toFixed(1);
@@ -527,7 +522,7 @@ function checkIfNextPieceFits() {
   let next = objects[objQueue[0]];
   let veh = vehicles[currentVeh];
   let groundY = height - GROUND_OFFSET;
-  let bumperX = width * 0.35;
+  let bumperX = width * 0.25; // Adjusted to left
   let zoneEndX = bumperX + veh.blindFt*SCALE;
   let eX = bumperX - (2*SCALE); let eY = groundY - (veh.hoodH*SCALE) - (2*SCALE);
   let slope = (groundY - eY) / (zoneEndX - eX);
@@ -578,7 +573,6 @@ function updateQueueUI() {
     div.style.width = w + 'px'; div.style.height = h + 'px';
     div.style.backgroundColor = type.color;
     div.style.borderRadius = "4px"; div.style.border = "1px solid rgba(0,0,0,0.2)";
-    // Simple visual fallback for queue if no image in DOM
     let head = document.createElement('div');
     head.style.width = (w*0.6) + 'px'; head.style.height = (w*0.6) + 'px';
     head.style.background = 'rgba(0,0,0,0.1)'; head.style.borderRadius = '50%';
@@ -597,7 +591,7 @@ function startChaosSequence() {
   
   let veh = vehicles[currentVeh];
   let h = veh.hoodH * SCALE;
-  let bumperX = width * 0.35;
+  let bumperX = width * 0.25; // Adjusted to left
   let groundY = height - GROUND_OFFSET;
   
   carBody = Bodies.rectangle(bumperX - 200, groundY - (h/2) - 10, 400, h, {
