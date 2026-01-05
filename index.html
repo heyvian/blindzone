@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Blind Zone Challenge - Cinematic Chaos</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+  <style>
+    body { margin: 0; padding: 0; background: #e0e0e0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+    
+    #ui-container {
+      position: absolute; top: 20px; left: 20px;
+      background: white; padding: 25px; border-radius: 12px;
+      border: 1px solid #bbb;
+      box-shadow: 0 4px 25px rgba(0,0,0,0.15);
+      width: 340px; pointer-events: none;
+      z-index: 10;
+    }
+    
+    h1 { margin: 0 0 10px 0; font-size: 22px; color: #d32f2f; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
+    
+    .flavor-text {
+      font-size: 14px; color: #444; font-style: italic; line-height: 1.5; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px;
+    }
+
+    .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; color: #555; }
+    .stat-val { font-weight: bold; color: #000; font-size: 16px; }
+    
+    .controls-hint {
+      background: #f0f0f0; padding: 8px; border-radius: 4px; text-align: center;
+      margin: 15px 0; font-weight: bold; color: #333; border: 1px solid #ccc;
+    }
+    .key-badge {
+      display: inline-block; background: #333; color: white; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px;
+    }
+
+    .big-score { font-size: 48px; color: #d32f2f; font-weight: 800; line-height: 1; text-align: center; margin: 10px 0 5px 0; }
+    .score-label { text-align: center; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+    #queue-container { margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
+    .queue-title { font-size: 12px; color: #555; font-weight: bold; margin-bottom: 5px; }
+    #queue-visuals { display: flex; gap: 10px; height: 50px; align-items: flex-end; justify-content: flex-start; }
+    
+    #controls {
+      position: absolute; top: 20px; right: 20px;
+      background: white; padding: 15px; border-radius: 8px;
+      border: 1px solid #ccc;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      text-align: right; pointer-events: auto; z-index: 10;
+    }
+    select { padding: 10px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; width: 220px; cursor: pointer; background: #f9f9f9; }
+    
+    #full-overlay {
+      display: none; position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+      text-align: center; background: rgba(255, 255, 255, 0.95); padding: 30px 40px;
+      border-radius: 50px; border: 3px solid #d32f2f; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      pointer-events: auto; z-index: 50; width: 450px;
+    }
+    .full-text { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 20px; line-height: 1.4; }
+    button.drive-btn {
+      padding: 15px 30px; font-size: 18px; background: #d32f2f; color: white; border: none; border-radius: 30px; cursor: pointer; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; transition: transform 0.1s;
+    }
+    button.drive-btn:hover { background: #b71c1c; transform: scale(1.05); }
+
+    #game-over {
+      display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: rgba(10, 10, 10, 0.98); color: white; padding: 40px; border-radius: 16px;
+      text-align: center; z-index: 100; box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+      min-width: 450px; border: 1px solid #444;
+    }
+    #game-over h2 { margin: 0 0 10px 0; font-size: 32px; color: #ff5252; text-transform: uppercase; letter-spacing: 1px; }
+    #go-subtitle { font-size: 16px; color: #aaa; margin-bottom: 25px; font-style: italic; line-height: 1.5; max-width: 400px; margin-left: auto; margin-right: auto; }
+    
+    /* The List Styles */
+    #go-list { 
+      text-align: left; margin: 0 auto 30px auto; width: 100%; max-width: 350px; 
+      border-top: 1px solid #444; border-bottom: 1px solid #444; padding: 15px 0;
+    }
+    .list-row {
+      display: flex; justify-content: space-between; align-items: baseline; 
+      margin-bottom: 8px; font-size: 18px; color: #eee;
+    }
+    .list-label { 
+      flex-grow: 1; overflow: hidden; white-space: nowrap; position: relative; 
+    }
+    .list-label::after { 
+      content: " ........................................................................."; 
+      color: #555; position: absolute;
+    }
+    .list-count { 
+      font-weight: bold; color: #ff5252; padding-left: 10px; background: rgba(10,10,10,1); position: relative; z-index: 2;
+    }
+
+    button.restart-btn {
+      padding: 12px 30px; font-size: 16px; background: white; color: black; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;
+    }
+    button.restart-btn:hover { background: #eee; }
+  </style>
+</head>
+<body>
+
+<div id="ui-container">
+  <h1>Blind Zone Test</h1>
+  <div class="flavor-text">
+    The driver is late. The kids are playing.
+    <br><br>
+    <strong>Pack as many children into the blind zone as possible so the driver can leave without seeing them.</strong>
+  </div>
+  
+  <div class="controls-hint">
+    Press <span class="key-badge">S</span> to Sit / Stand
+  </div>
+
+  <div class="stat-row">
+    <span>Blind Distance:</span>
+    <span class="stat-val" id="distDisplay">--</span>
+  </div>
+  <div class="big-score" id="scoreDisplay">0</div>
+  <div class="score-label">Kids Hidden</div>
+
+  <div id="queue-container">
+    <div class="queue-title">NEXT UP:</div>
+    <div id="queue-visuals"></div>
+  </div>
+  
+  <div style="font-size: 11px; color: #aaa; margin-top: 15px; line-height: 1.3;">
+    <span style="color: blue;">Blue</span> = Safe.<br>
+    <span style="color: #d32f2f;">Red</span> = Too high (Cannot place).<br>
+  </div>
+</div>
+
+<div id="controls">
+  <select id="vehicleSelect" onchange="changeVehicle()"></select>
+</div>
+
+<div id="full-overlay">
+  <div class="full-text">Stop! If you add any more children, the driver might see them and won't be able to leave.</div>
+  <button class="drive-btn" onclick="startChaosSequence()">Drive away while you still can</button>
+</div>
+
+<div id="game-over">
+  <h2 id="go-title">Driver Spotted You!</h2>
+  <div id="go-subtitle">Congratulations, you ensured the driver wouldn't be inconvenienced by the sight of:</div>
+  <div id="go-list"></div>
+  <button class="restart-btn" onclick="resetSim()">Try Again</button>
+</div>
+
+<script>
+const SCALE = 40; 
+const GROUND_OFFSET = 50;
+
+// Verified Data
+const vehicles = {
+  "Cadillac Escalade": { blindFt: 10.17, hoodH: 4.8 },
+  "Ford F150":         { blindFt: 9.58,  hoodH: 4.6 },
+  "Ford Explorer":     { blindFt: 8.42,  hoodH: 4.2 },
+  "Jeep Renegade":     { blindFt: 7.08,  hoodH: 3.9 },
+  "GMC Terrain":       { blindFt: 5.67,  hoodH: 3.8 },
+  "Honda Odyssey":     { blindFt: 5.67,  hoodH: 3.6 },
+  "Toyota Camry":      { blindFt: 3.25,  hoodH: 2.8 }
+};
+
+// CDC Data
+const objects = [
+  { label: "Toddler (2yo)", color: "#BA68C8", age: 2, stand: { w: 0.75, h: 2.8 }, sit: { w: 1.2,  h: 1.8 } },
+  { label: "Preschooler (4yo)", color: "#E91E63", age: 4, stand: { w: 0.8, h: 3.3 }, sit: { w: 1.4, h: 2.0 } },
+  { label: "1st Grader (6yo)", color: "#3F51B5", age: 6, stand: { w: 0.9, h: 3.8 }, sit: { w: 1.6, h: 2.2 } },
+  { label: "2nd Grader (8yo)", color: "#2196F3", age: 8, stand: { w: 0.95, h: 4.2 }, sit: { w: 1.7,  h: 2.3 } }
+];
+
+const Engine = Matter.Engine, World = Matter.World, Bodies = Matter.Bodies, Runner = Matter.Runner, Body = Matter.Body;
+
+let engine, world;
+let ground, carBody;
+let boxes = [];
+let currentVeh = "Cadillac Escalade";
+let objQueue = []; 
+let gameState = "PLAYING"; 
+let ghostPos = { x: 0, y: 0, valid: false, visible: false };
+let isSitting = false; 
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  engine = Engine.create();
+  world = engine.world;
+  engine.constraintIterations = 4;
+  engine.positionIterations = 10;
+  engine.velocityIterations = 10;
+  
+  ground = Bodies.rectangle(width/2, height, width, 100, { isStatic: true });
+  World.add(world, ground);
+  
+  let sel = document.getElementById('vehicleSelect');
+  for(let v in vehicles) sel.add(new Option(v, v));
+  sel.value = currentVeh;
+  changeVehicle();
+  
+  for(let i=0; i<4; i++) objQueue.push(floor(random(objects.length)));
+  updateQueueUI();
+  
+  Runner.run(Runner.create(), engine);
+}
+
+function keyPressed() {
+  if (key === 's' || key === 'S') isSitting = !isSitting;
+}
+
+function draw() {
+  background(245);
+  let veh = vehicles[currentVeh];
+  let zoneLenPx = veh.blindFt * SCALE;
+  let groundY = height - GROUND_OFFSET;
+  let bumperX = 400; // Static visual bumper X
+  let zoneEndX = bumperX + zoneLenPx;
+  
+  // --- 1. Draw Blind Zone ---
+  if(gameState !== "DRIVING" && gameState !== "GAMEOVER") {
+    let eyeX = bumperX - (2 * SCALE); 
+    let eyeY = groundY - (veh.hoodH * SCALE) - (2.0 * SCALE);
+    noStroke(); fill(255, 0, 0, 20); 
+    triangle(eyeX, eyeY, bumperX, groundY, zoneEndX, groundY);
+    stroke(255, 0, 0); strokeWeight(4);
+    line(bumperX, groundY, zoneEndX, groundY);
+  }
+
+  // --- 2. Draw Vehicle ---
+  if(gameState === "DRIVING" && carBody) {
+    // Dynamic Physics Car
+    let pos = carBody.position;
+    push();
+    translate(pos.x, pos.y);
+    rotate(carBody.angle);
+    noStroke(); fill(40);
+    rectMode(CENTER);
+    rect(0, 0, 400, veh.hoodH * SCALE + 50); 
+    fill(0); 
+    ellipse(-100, (veh.hoodH * SCALE + 50)/2, 65, 65);
+    ellipse(100, (veh.hoodH * SCALE + 50)/2, 65, 65);
+    pop();
+  } else {
+    // Static Setup Car
+    noStroke(); fill(40);
+    rect(0, groundY - veh.hoodH*SCALE, bumperX, veh.hoodH*SCALE);
+    fill(30); rect(0, groundY - veh.hoodH*SCALE - 70, bumperX - 80, 70);
+    fill(0); ellipse(bumperX - 55, groundY, 65, 65); ellipse(bumperX - 240, groundY, 65, 65);
+    stroke(100); strokeWeight(1); line(bumperX, groundY, bumperX, groundY - veh.hoodH*SCALE);
+  }
+
+  // --- 3. Draw Objects ---
+  let currentScore = 0;
+  for (let b of boxes) {
+    let pos = b.body.position;
+    let type = b.type;
+    let dims = b.isSitting ? type.sit : type.stand;
+    
+    if(gameState === "PLAYING") currentScore++;
+
+    fill(type.color); stroke(0,0,0,80); strokeWeight(1);
+    push(); translate(pos.x, pos.y); rotate(b.body.angle);
+    rectMode(CENTER); rect(0, 0, dims.w*SCALE, dims.h*SCALE);
+    fill(255,255,255, 220); noStroke(); textSize(10); textAlign(CENTER, CENTER);
+    let label = type.label.split(' ')[0] + (b.isSitting ? "\n(Sit)" : "");
+    text(label, 0, 0);
+    pop();
+  }
+
+  fill(80); noStroke(); rect(0, groundY, width, GROUND_OFFSET);
+  
+  if (gameState === "PLAYING") {
+    document.getElementById('scoreDisplay').innerText = currentScore;
+    if(objQueue.length > 0) {
+      let nextObj = objects[objQueue[0]];
+      drawGhost(bumperX, zoneEndX, groundY, bumperX-(2*SCALE), groundY-veh.hoodH*SCALE-80, (groundY-(groundY-veh.hoodH*SCALE-80))/(zoneEndX-(bumperX-80)), nextObj);
+    }
+  }
+}
+
+// --- PHYSICS HELPER ---
+function getBestY(gx, objW, objH, groundY, targetY) {
+  let blockers = [];
+  for(let b of boxes) {
+    let dims = b.isSitting ? b.type.sit : b.type.stand;
+    let bW = dims.w * SCALE;
+    let bH = dims.h * SCALE;
+    let bPos = b.body.position;
+    let myLeft = gx - objW/2; let myRight = gx + objW/2;
+    if (myLeft < bPos.x + bW/2 - 0.5 && myRight > bPos.x - bW/2 + 0.5) {
+       blockers.push({ top: bPos.y - bH/2, bottom: bPos.y + bH/2 });
+    }
+  }
+  blockers.sort((a, b) => a.top - b.top);
+  let validFloors = [];
+  let candidates = [groundY];
+  for(let b of blockers) candidates.push(b.top);
+  
+  for(let floorY of candidates) {
+    let proposedTop = floorY - objH; let fits = true;
+    for(let b of blockers) {
+       if(Math.abs(b.top - floorY) < 1) continue; 
+       if (b.bottom > proposedTop + 0.5 && b.top < floorY - 0.5) { fits = false; break; }
+    }
+    if(fits) validFloors.push(floorY);
+  }
+  if(validFloors.length === 0) return null;
+  validFloors.sort((a, b) => Math.abs(a - targetY) - Math.abs(b - targetY));
+  return validFloors[0] - objH/2;
+}
+
+function drawGhost(bumperX, zoneEndX, groundY, eyeX, eyeY, slope, next) {
+  let dims = isSitting ? next.sit : next.stand;
+  let objW = dims.w * SCALE;
+  let objH = dims.h * SCALE;
+  let gx = constrain(mouseX, bumperX + objW/2, zoneEndX - objW/2);
+  let gy = getBestY(gx, objW, objH, groundY, mouseY);
+  
+  if(gy === null) { ghostPos = { valid: false, visible: true }; return; }
+  
+  let corners = [gx - objW/2, gx, gx + objW/2];
+  let visible = false;
+  let checkY = gy - objH/2;
+  // Recalc Eye coords locally for ghost
+  let veh = vehicles[currentVeh];
+  let eX = bumperX - (2*SCALE); let eY = groundY - (veh.hoodH*SCALE) - (2*SCALE);
+  let sl = (groundY - eY) / (zoneEndX - eX);
+  
+  for(let cx of corners) if(checkY < sl * (cx - eX) + eY) visible = true;
+  
+  ghostPos = { x: gx, y: gy, valid: true, visible: visible };
+  
+  push(); translate(gx, gy);
+  if (visible) { stroke(255, 0, 0); fill(255, 0, 0, 40); } else { stroke(0, 0, 255); noFill(); }
+  strokeWeight(2); drawingContext.setLineDash(visible ? [] : [5,5]);
+  rectMode(CENTER); rect(0, 0, objW, objH);
+  stroke(0,0,0,50); drawingContext.setLineDash([]); line(0, objH/2, 0, groundY - gy);
+  noStroke(); fill(0); textSize(10); textAlign(CENTER); text(isSitting?"Sit":"Stand", 0,0);
+  pop();
+}
+
+function checkIfNextPieceFits() {
+  let next = objects[objQueue[0]];
+  let veh = vehicles[currentVeh];
+  let groundY = height - GROUND_OFFSET;
+  let bumperX = 400; let zoneEndX = bumperX + veh.blindFt*SCALE;
+  let eX = bumperX - (2*SCALE); let eY = groundY - (veh.hoodH*SCALE) - (2*SCALE);
+  let slope = (groundY - eY) / (zoneEndX - eX);
+  
+  let foundSpot = false;
+  for(let dims of [next.stand, next.sit]) {
+    let objW = dims.w * SCALE; let objH = dims.h * SCALE;
+    let minX = bumperX + objW/2; let maxX = zoneEndX - objW/2;
+    for(let tx = minX; tx <= maxX; tx += 10) {
+      let gy = getBestY(tx, objW, objH, groundY, groundY);
+      if(gy !== null) {
+        let vis = false;
+        let c = [tx - objW/2, tx, tx + objW/2];
+        for(let x of c) if(gy - objH/2 < slope * (x - eX) + eY) vis = true;
+        if(!vis) { foundSpot = true; break; }
+      }
+    }
+    if(foundSpot) break;
+  }
+  if(!foundSpot) {
+    gameState = "FULL";
+    document.getElementById('full-overlay').style.display = "block";
+  }
+}
+
+function mousePressed() {
+  if (gameState !== "PLAYING") return;
+  if (mouseX < 340 && mouseY < 300) return; 
+  if (ghostPos.visible) return;
+  if(ghostPos.valid) {
+    let typeIndex = objQueue.shift();
+    let next = objects[typeIndex];
+    objQueue.push(floor(random(objects.length)));
+    updateQueueUI();
+    spawnObject(ghostPos.x, ghostPos.y, next, isSitting);
+    setTimeout(checkIfNextPieceFits, 50); 
+  }
+}
+
+function spawnObject(x, y, typeData, sitting) {
+  let dims = sitting ? typeData.sit : typeData.stand;
+  let box = Bodies.rectangle(x, y, dims.w*SCALE, dims.h*SCALE, {
+    friction: 1.0, frictionStatic: 10.0, restitution: 0.1, density: 0.002
+  });
+  World.add(world, box);
+  boxes.push({ body: box, type: typeData, isSitting: sitting });
+}
+
+function updateQueueUI() {
+  let container = document.getElementById('queue-visuals');
+  container.innerHTML = '';
+  for(let i=0; i<2; i++) {
+    let type = objects[objQueue[i]];
+    let div = document.createElement('div');
+    let uiScale = 15; 
+    div.style.width = (type.stand.w * uiScale) + 'px';
+    div.style.height = (type.stand.h * uiScale) + 'px';
+    div.style.backgroundColor = type.color;
+    div.style.border = '1px solid #333';
+    div.style.marginRight = '10px';
+    container.appendChild(div);
+  }
+}
+
+// --- CHAOS SEQUENCE ---
+function startChaosSequence() {
+  document.getElementById('full-overlay').style.display = "none";
+  gameState = "DRIVING";
+  
+  // 1. ACTIVATE MOON GRAVITY (Slow-mo effect)
+  engine.gravity.y = 0.2; 
+  
+  // 2. Create the Physics Juggernaut
+  let veh = vehicles[currentVeh];
+  let h = veh.hoodH * SCALE;
+  let bumperX = 400;
+  let groundY = height - GROUND_OFFSET;
+  
+  carBody = Bodies.rectangle(bumperX - 200, groundY - (h/2) - 10, 400, h, {
+    density: 200, // EXTREME DENSITY
+    friction: 0,
+    restitution: 0.5,
+    frictionAir: 0
+  });
+  World.add(world, carBody);
+  
+  // 3. Launch it (Speed 15)
+  Body.setVelocity(carBody, { x: 15, y: 0 }); 
+  
+  // 4. Wait for chaos, then show Receipt
+  setTimeout(showReceipt, 3500); 
+}
+
+function showReceipt() {
+  gameState = "GAMEOVER";
+  let stats = {};
+  let safeCount = 0;
+  let breakdown = [];
+
+  for (let b of boxes) {
+    safeCount++;
+    let label = b.type.label;
+    if(!stats[label]) stats[label] = { count: 0, age: b.type.age };
+    stats[label].count++;
+  }
+
+  for (let label in stats) breakdown.push({ label: label, count: stats[label].count, age: stats[label].age });
+  breakdown.sort((a, b) => b.age - a.age);
+
+  let listHTML = "";
+  for(let item of breakdown) {
+    listHTML += `
+      <div class="list-row">
+        <div class="list-label">${item.label}</div>
+        <div class="list-count">${item.count}</div>
+      </div>
+    `;
+  }
+
+  let el = document.getElementById('game-over');
+  let title = document.getElementById('go-title');
+  let listDiv = document.getElementById('go-list');
+  
+  title.innerText = `You Hid ${safeCount} Kids!`;
+  listDiv.innerHTML = listHTML;
+  el.style.display = "block";
+}
+
+function resetSim() {
+  // RESET GRAVITY
+  engine.gravity.y = 1.0; 
+
+  for(let b of boxes) World.remove(world, b.body);
+  if(carBody) World.remove(world, carBody);
+  boxes = [];
+  carBody = null;
+  gameState = "PLAYING";
+  document.getElementById('game-over').style.display = 'none';
+  document.getElementById('full-overlay').style.display = 'none';
+  document.getElementById('scoreDisplay').innerText = "0";
+  objQueue = [];
+  for(let i=0; i<4; i++) objQueue.push(floor(random(objects.length)));
+  updateQueueUI();
+}
+
+function changeVehicle() {
+  resetSim();
+  let sel = document.getElementById('vehicleSelect');
+  currentVeh = sel.value;
+  let v = vehicles[currentVeh];
+  let ft = Math.floor(v.blindFt);
+  let inch = Math.round((v.blindFt - ft)*12);
+  document.getElementById('distDisplay').innerText = `${ft}' ${inch}"`;
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  World.remove(world, ground);
+  ground = Bodies.rectangle(width/2, height, width, 100, { isStatic: true });
+  World.add(world, ground);
+}
+</script>
+</body>
+</html>
