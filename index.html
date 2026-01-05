@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Blind Zone Challenge - Cinematic Chaos</title>
+  <title>Blind Zone Challenge - Final</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
   <style>
@@ -64,14 +64,14 @@
 
     #game-over {
       display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: rgba(10, 10, 10, 0.98); color: white; padding: 40px; border-radius: 16px;
+      background: rgba(10, 10, 10, 0.85); color: white; padding: 40px; border-radius: 16px;
       text-align: center; z-index: 100; box-shadow: 0 20px 60px rgba(0,0,0,0.8);
       min-width: 450px; border: 1px solid #444;
+      backdrop-filter: blur(5px);
     }
     #game-over h2 { margin: 0 0 10px 0; font-size: 32px; color: #ff5252; text-transform: uppercase; letter-spacing: 1px; }
     #go-subtitle { font-size: 16px; color: #aaa; margin-bottom: 25px; font-style: italic; line-height: 1.5; max-width: 400px; margin-left: auto; margin-right: auto; }
     
-    /* The List Styles */
     #go-list { 
       text-align: left; margin: 0 auto 30px auto; width: 100%; max-width: 350px; 
       border-top: 1px solid #444; border-bottom: 1px solid #444; padding: 15px 0;
@@ -149,7 +149,6 @@
 const SCALE = 40; 
 const GROUND_OFFSET = 50;
 
-// Verified Data
 const vehicles = {
   "Cadillac Escalade": { blindFt: 10.17, hoodH: 4.8 },
   "Ford F150":         { blindFt: 9.58,  hoodH: 4.6 },
@@ -160,7 +159,6 @@ const vehicles = {
   "Toyota Camry":      { blindFt: 3.25,  hoodH: 2.8 }
 };
 
-// CDC Data
 const objects = [
   { label: "Toddler (2yo)", color: "#BA68C8", age: 2, stand: { w: 0.75, h: 2.8 }, sit: { w: 1.2,  h: 1.8 } },
   { label: "Preschooler (4yo)", color: "#E91E63", age: 4, stand: { w: 0.8, h: 3.3 }, sit: { w: 1.4, h: 2.0 } },
@@ -210,7 +208,7 @@ function draw() {
   let veh = vehicles[currentVeh];
   let zoneLenPx = veh.blindFt * SCALE;
   let groundY = height - GROUND_OFFSET;
-  let bumperX = 400; // Static visual bumper X
+  let bumperX = 400; 
   let zoneEndX = bumperX + zoneLenPx;
   
   // --- 1. Draw Blind Zone ---
@@ -225,7 +223,6 @@ function draw() {
 
   // --- 2. Draw Vehicle ---
   if(gameState === "DRIVING" && carBody) {
-    // Dynamic Physics Car
     let pos = carBody.position;
     push();
     translate(pos.x, pos.y);
@@ -238,7 +235,6 @@ function draw() {
     ellipse(100, (veh.hoodH * SCALE + 50)/2, 65, 65);
     pop();
   } else {
-    // Static Setup Car
     noStroke(); fill(40);
     rect(0, groundY - veh.hoodH*SCALE, bumperX, veh.hoodH*SCALE);
     fill(30); rect(0, groundY - veh.hoodH*SCALE - 70, bumperX - 80, 70);
@@ -275,7 +271,6 @@ function draw() {
   }
 }
 
-// --- PHYSICS HELPER ---
 function getBestY(gx, objW, objH, groundY, targetY) {
   let blockers = [];
   for(let b of boxes) {
@@ -318,7 +313,7 @@ function drawGhost(bumperX, zoneEndX, groundY, eyeX, eyeY, slope, next) {
   let corners = [gx - objW/2, gx, gx + objW/2];
   let visible = false;
   let checkY = gy - objH/2;
-  // Recalc Eye coords locally for ghost
+  // Recalc Eye coords
   let veh = vehicles[currentVeh];
   let eX = bumperX - (2*SCALE); let eY = groundY - (veh.hoodH*SCALE) - (2*SCALE);
   let sl = (groundY - eY) / (zoneEndX - eX);
@@ -382,6 +377,7 @@ function mousePressed() {
 function spawnObject(x, y, typeData, sitting) {
   let dims = sitting ? typeData.sit : typeData.stand;
   let box = Bodies.rectangle(x, y, dims.w*SCALE, dims.h*SCALE, {
+    isStatic: true, // STACKING MODE: FROZEN
     friction: 1.0, frictionStatic: 10.0, restitution: 0.1, density: 0.002
   });
   World.add(world, box);
@@ -409,32 +405,37 @@ function startChaosSequence() {
   document.getElementById('full-overlay').style.display = "none";
   gameState = "DRIVING";
   
-  // 1. ACTIVATE MOON GRAVITY (Slow-mo effect)
+  // 1. ACTIVATE MOON GRAVITY
   engine.gravity.y = 0.2; 
   
-  // 2. Create the Physics Juggernaut
+  // 2. WAKE UP ALL KIDS
+  for(let b of boxes) {
+    Body.setStatic(b.body, false);
+  }
+  
+  // 3. Create Juggernaut
   let veh = vehicles[currentVeh];
   let h = veh.hoodH * SCALE;
   let bumperX = 400;
   let groundY = height - GROUND_OFFSET;
   
   carBody = Bodies.rectangle(bumperX - 200, groundY - (h/2) - 10, 400, h, {
-    density: 200, // EXTREME DENSITY
+    density: 200, // HEAVY
     friction: 0,
     restitution: 0.5,
     frictionAir: 0
   });
   World.add(world, carBody);
   
-  // 3. Launch it (Speed 15)
+  // 4. Launch
   Body.setVelocity(carBody, { x: 15, y: 0 }); 
   
-  // 4. Wait for chaos, then show Receipt
-  setTimeout(showReceipt, 3500); 
+  // 5. Show Receipt Immediately
+  showReceipt();
 }
 
 function showReceipt() {
-  gameState = "GAMEOVER";
+  // We keep game state as "DRIVING" visually, but trigger modal
   let stats = {};
   let safeCount = 0;
   let breakdown = [];
@@ -469,8 +470,7 @@ function showReceipt() {
 }
 
 function resetSim() {
-  // RESET GRAVITY
-  engine.gravity.y = 1.0; 
+  engine.gravity.y = 1.0; // Reset gravity
 
   for(let b of boxes) World.remove(world, b.body);
   if(carBody) World.remove(world, carBody);
