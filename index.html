@@ -2,13 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>The Blind Zone</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
   <style>
     /* --- RESET & BASE --- */
-    body { margin: 0; padding: 0; background: #f4f4f9; font-family: 'Inter', sans-serif; overflow: hidden; user-select: none; }
+    body { 
+      margin: 0; padding: 0; background: #f4f4f9; 
+      font-family: 'Inter', sans-serif; 
+      overflow: hidden; user-select: none; 
+      /* Prevents pull-to-refresh and zooming on mobile */
+      touch-action: none; 
+      -webkit-touch-callout: none;
+    }
     
     /* --- HUD (Top Bar) --- */
     #hud-top {
@@ -35,14 +43,12 @@
       background: #fff; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; color: #333;
       outline: none; transition: all 0.2s; height: 40px;
     }
-    .vehicle-selector:hover { border-color: #888; }
 
     .btn-about {
       padding: 0 16px; height: 40px; font-size: 14px; font-weight: 700; border-radius: 6px; 
       border: 1px solid #ddd; background: #fff; cursor: pointer; color: #555;
       transition: all 0.2s; display: flex; align-items: center; gap: 6px;
     }
-    .btn-about:hover { background: #f0f0f0; color: #111; border-color: #999; }
     .icon { font-size: 16px; font-weight: bold; color: #d32f2f; }
 
     /* --- SIDEBAR --- */
@@ -51,14 +57,26 @@
       background: white; padding: 20px; border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.08); width: 130px;
       text-align: center; z-index: 50; border: 1px solid #eee;
+      /* Make it clear this is clickable */
+      cursor: pointer; transition: transform 0.1s;
     }
+    #sidebar-right:active { transform: scale(0.98); background: #fafafa; }
+    
     .panel-title { font-size: 11px; font-weight: 800; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; }
     #queue-visuals { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 20px; }
     
     .key-hint { font-size: 12px; color: #666; background: #f0f0f0; padding: 10px; border-radius: 8px; font-weight: 600; line-height: 1.4; }
     .key { background: #fff; border: 1px solid #ccc; padding: 2px 6px; border-radius: 4px; box-shadow: 0 2px 0 #ddd; color: #111; }
+    
+    /* New Mobile Toggle Button Style */
+    .btn-toggle-stance {
+      margin-top: 10px; width: 100%; padding: 8px; 
+      background: #333; color: white; border: none; 
+      border-radius: 6px; font-weight: 700; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
 
-    /* --- PERMANENT INSTRUCTIONS (SKY TEXT) --- */
+    /* --- PERMANENT INSTRUCTIONS --- */
     #sky-text {
       position: absolute; top: 120px; width: 100%;
       text-align: center; pointer-events: none; z-index: 10;
@@ -73,6 +91,21 @@
       pointer-events: none; z-index: 200; 
       display: flex; align-items: center; justify-content: center;
     }
+    
+    /* MOBILE LANDSCAPE WARNING */
+    #rotate-device {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: #111; color: white; z-index: 9999;
+      display: none; align-items: center; justify-content: center; flex-direction: column;
+      text-align: center; padding: 40px; box-sizing: border-box;
+    }
+    .rotate-icon { font-size: 40px; margin-bottom: 20px; }
+    
+    /* Show rotate screen ONLY on portrait mobile/tablet */
+    @media (orientation: portrait) and (max-width: 1024px) {
+      #rotate-device { display: flex; }
+      #hud-top, #sidebar-right { display: none; }
+    }
 
     .modal-card {
       background: rgba(255, 255, 255, 0.99); 
@@ -82,7 +115,7 @@
       display: none; backdrop-filter: blur(10px);
       border: 1px solid rgba(0,0,0,0.1); position: relative;
     }
-
+    
     #warning-card { border: 4px solid #d32f2f; }
     .warning-text { font-size: 20px; font-weight: 800; color: #d32f2f; margin-bottom: 25px; line-height: 1.4; }
     
@@ -130,6 +163,12 @@
 </head>
 <body>
 
+<div id="rotate-device">
+  <div class="rotate-icon">↻</div>
+  <h2>PLEASE ROTATE YOUR DEVICE</h2>
+  <p>This simulation requires a landscape view to display the blind zones correctly.</p>
+</div>
+
 <div id="hud-top">
   <div class="brand">
     <h1>THE BLIND ZONE</h1>
@@ -156,7 +195,9 @@
 
 <div id="sidebar-right">
   <div class="panel-title">Next Up</div>
-  <div id="queue-visuals"></div> <div class="key-hint">Press <span class="key">S</span><br>to Sit / Stand</div>
+  <div id="queue-visuals"></div> 
+  <div class="key-hint">Press <span class="key">S</span><br>or Click Panel</div>
+  <button class="btn-toggle-stance">Toggle Sit/Stand</button>
 </div>
 
 <div id="overlay-container">
@@ -214,7 +255,7 @@ const vehicles = {
   "Toyota Camry":      { blindFt: 3.25,  hoodH: 2.8, type: "SEDAN" }
 };
 
-// Child Data (With SVG Hooks)
+// Child Data
 const objects = [
   { 
     label: "Toddler", desc: "2yo", color: "#BA68C8", age: 2, 
@@ -303,7 +344,7 @@ function draw() {
   let veh = vehicles[currentVeh];
   let zoneLenPx = veh.blindFt * SCALE;
   let groundY = height - GROUND_OFFSET;
-  let bumperX = width * 0.25; // Adjusted to left for more screen space
+  let bumperX = width * 0.25; 
   let zoneEndX = bumperX + zoneLenPx;
   
   // A. Draw Blind Zone Overlay
@@ -356,23 +397,36 @@ function windowResized() {
 }
 
 /* =========================================
-   5. INPUT HANDLING
+   5. INPUT HANDLING (MOUSE & TOUCH)
    ========================================= */
 function keyPressed() {
   if ((key === 's' || key === 'S') && !isAboutOpen) {
-    isSitting = !isSitting;
-    updateQueueUI();
-    setTimeout(checkIfNextPieceFits, 50);
+    toggleStance();
   }
+}
+
+// Global Toggle Function called by Key or Click
+function toggleStance() {
+  isSitting = !isSitting;
+  updateQueueUI();
+  setTimeout(checkIfNextPieceFits, 50);
 }
 
 function mousePressed() {
   if (gameState !== "PLAYING") return;
   if (isAboutOpen) return;
-  if (mouseY < 80 || (mouseX > width - 160 && mouseY > 100)) return;
-  if (ghostPos.visible) return; 
+  if (mouseY < 80) return; // Top HUD
   
-  if(ghostPos.valid) {
+  // Sidebar Interaction (Width 130px + right margin 20px = 150px)
+  if (mouseX > width - 160 && mouseY > 100) {
+    // Clicked the Sidebar -> Toggle Sit/Stand
+    toggleStance();
+    return;
+  }
+
+  // Main Canvas Interaction (Placement)
+  if (ghostPos.visible) return; 
+  if (ghostPos.valid) {
     let typeIndex = objQueue.shift();
     let next = objects[typeIndex];
     objQueue.push(floor(random(objects.length)));
@@ -522,9 +576,9 @@ function checkIfNextPieceFits() {
   let next = objects[objQueue[0]];
   let veh = vehicles[currentVeh];
   let groundY = height - GROUND_OFFSET;
-  let bumperX = width * 0.25; // Adjusted to left
+  let bumperX = width * 0.25; 
   let zoneEndX = bumperX + veh.blindFt*SCALE;
-  let eX = bumperX - (2*SCALE); let eY = groundY - (veh.hoodH*SCALE) - (2*SCALE);
+  let eX = bumperX - (2*SCALE); let eY = groundY - (veh.hoodH*SCALE) - (2.0 * SCALE);
   let slope = (groundY - eY) / (zoneEndX - eX);
   
   let foundSpot = false;
@@ -591,7 +645,7 @@ function startChaosSequence() {
   
   let veh = vehicles[currentVeh];
   let h = veh.hoodH * SCALE;
-  let bumperX = width * 0.25; // Adjusted to left
+  let bumperX = width * 0.25; 
   let groundY = height - GROUND_OFFSET;
   
   carBody = Bodies.rectangle(bumperX - 200, groundY - (h/2) - 10, 400, h, {
