@@ -2,171 +2,240 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Blind Zone Challenge - Final</title>
+  <title>Blind Zone Challenge</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
   <style>
-    body { margin: 0; padding: 0; background: #e0e0e0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+    /* --- RESET & BASE --- */
+    body { margin: 0; padding: 0; background: #f4f4f9; font-family: 'Inter', sans-serif; overflow: hidden; user-select: none; }
     
-    #ui-container {
-      position: absolute; top: 20px; left: 20px;
-      background: white; padding: 25px; border-radius: 12px;
-      border: 1px solid #bbb;
-      box-shadow: 0 4px 25px rgba(0,0,0,0.15);
-      width: 340px; pointer-events: none;
-      z-index: 10;
-    }
-    
-    h1 { margin: 0 0 10px 0; font-size: 22px; color: #d32f2f; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
-    
-    .flavor-text {
-      font-size: 14px; color: #444; font-style: italic; line-height: 1.5; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px;
+    /* --- HUD (Top Bar) --- */
+    #hud-top {
+      position: absolute; top: 0; left: 0; width: 100%; height: 80px;
+      background: rgba(255, 255, 255, 0.98); 
+      border-bottom: 1px solid #e0e0e0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 30px; box-sizing: border-box; 
+      z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.03);
     }
 
-    .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; color: #555; }
-    .stat-val { font-weight: bold; color: #000; font-size: 16px; }
+    .brand { display: flex; flex-direction: column; min-width: 200px; }
+    .brand h1 { margin: 0; font-size: 22px; font-weight: 900; color: #111; letter-spacing: -0.5px; line-height: 1; }
+    .brand span { font-size: 10px; color: #d32f2f; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+    .score-container { text-align: center; position: absolute; left: 50%; transform: translateX(-50%); }
+    .score-val { font-size: 32px; font-weight: 900; color: #111; line-height: 1; }
+    .score-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: #888; font-weight: 700; margin-top: 4px; }
+
+    .right-controls { display: flex; gap: 12px; align-items: center; }
     
-    .controls-hint {
-      background: #f0f0f0; padding: 8px; border-radius: 4px; text-align: center;
-      margin: 15px 0; font-weight: bold; color: #333; border: 1px solid #ccc;
+    .vehicle-selector {
+      padding: 8px 12px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc;
+      background: #fff; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; color: #333;
+      outline: none; transition: all 0.2s; height: 40px;
     }
-    .key-badge {
-      display: inline-block; background: #333; color: white; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px;
+    .vehicle-selector:hover { border-color: #888; }
+
+    .btn-about {
+      padding: 0 16px; height: 40px; font-size: 14px; font-weight: 700; border-radius: 6px; 
+      border: 1px solid #ddd; background: #fff; cursor: pointer; color: #555;
+      transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+    }
+    .btn-about:hover { background: #f0f0f0; color: #111; border-color: #999; }
+    .icon { font-size: 16px; font-weight: bold; color: #d32f2f; }
+
+    /* --- SIDEBAR --- */
+    #sidebar-right {
+      position: absolute; top: 100px; right: 20px;
+      background: white; padding: 20px; border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08); width: 130px;
+      text-align: center; z-index: 50; border: 1px solid #eee;
+    }
+    .panel-title { font-size: 11px; font-weight: 800; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; }
+    #queue-visuals { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 20px; }
+    
+    .key-hint { font-size: 12px; color: #666; background: #f0f0f0; padding: 10px; border-radius: 8px; font-weight: 600; line-height: 1.4; }
+    .key { background: #fff; border: 1px solid #ccc; padding: 2px 6px; border-radius: 4px; box-shadow: 0 2px 0 #ddd; color: #111; }
+
+    /* --- OVERLAYS --- */
+    #overlay-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 200; 
+      display: flex; align-items: center; justify-content: center;
     }
 
-    .big-score { font-size: 48px; color: #d32f2f; font-weight: 800; line-height: 1; text-align: center; margin: 10px 0 5px 0; }
-    .score-label { text-align: center; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-
-    #queue-container { margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
-    .queue-title { font-size: 12px; color: #555; font-weight: bold; margin-bottom: 5px; }
-    #queue-visuals { display: flex; gap: 10px; height: 50px; align-items: flex-end; justify-content: flex-start; }
-    
-    #controls {
-      position: absolute; top: 20px; right: 20px;
-      background: white; padding: 15px; border-radius: 8px;
-      border: 1px solid #ccc;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-      text-align: right; pointer-events: auto; z-index: 10;
-    }
-    select { padding: 10px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; width: 220px; cursor: pointer; background: #f9f9f9; }
-    
-    #full-overlay {
-      display: none; position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
-      text-align: center; background: rgba(255, 255, 255, 0.95); padding: 30px 40px;
-      border-radius: 50px; border: 3px solid #d32f2f; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-      pointer-events: auto; z-index: 50; width: 450px;
-    }
-    .full-text { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 20px; line-height: 1.4; }
-    button.drive-btn {
-      padding: 15px 30px; font-size: 18px; background: #d32f2f; color: white; border: none; border-radius: 30px; cursor: pointer; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; transition: transform 0.1s;
-    }
-    button.drive-btn:hover { background: #b71c1c; transform: scale(1.05); }
-
-    #game-over {
-      display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: rgba(10, 10, 10, 0.85); color: white; padding: 40px; border-radius: 16px;
-      text-align: center; z-index: 100; box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-      min-width: 450px; border: 1px solid #444;
-      backdrop-filter: blur(5px);
-    }
-    #game-over h2 { margin: 0 0 10px 0; font-size: 32px; color: #ff5252; text-transform: uppercase; letter-spacing: 1px; }
-    #go-subtitle { font-size: 16px; color: #aaa; margin-bottom: 25px; font-style: italic; line-height: 1.5; max-width: 400px; margin-left: auto; margin-right: auto; }
-    
-    #go-list { 
-      text-align: left; margin: 0 auto 30px auto; width: 100%; max-width: 350px; 
-      border-top: 1px solid #444; border-bottom: 1px solid #444; padding: 15px 0;
-    }
-    .list-row {
-      display: flex; justify-content: space-between; align-items: baseline; 
-      margin-bottom: 8px; font-size: 18px; color: #eee;
-    }
-    .list-label { 
-      flex-grow: 1; overflow: hidden; white-space: nowrap; position: relative; 
-    }
-    .list-label::after { 
-      content: " ........................................................................."; 
-      color: #555; position: absolute;
-    }
-    .list-count { 
-      font-weight: bold; color: #ff5252; padding-left: 10px; background: rgba(10,10,10,1); position: relative; z-index: 2;
+    .modal-card {
+      background: rgba(255, 255, 255, 0.99); 
+      padding: 40px; border-radius: 20px; text-align: center;
+      box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.3);
+      pointer-events: auto; max-width: 500px; width: 90%;
+      display: none; backdrop-filter: blur(10px);
+      border: 1px solid rgba(0,0,0,0.1); position: relative;
     }
 
-    button.restart-btn {
-      padding: 12px 30px; font-size: 16px; background: white; color: black; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;
+    #warning-card { border: 4px solid #d32f2f; }
+    .warning-text { font-size: 20px; font-weight: 800; color: #d32f2f; margin-bottom: 25px; line-height: 1.4; }
+    
+    #gameover-card { background: rgba(15, 15, 15, 0.96); color: white; border: 1px solid #333; }
+    #gameover-card h2 { margin: 0 0 10px 0; font-size: 28px; color: #ff5252; font-weight: 900; letter-spacing: -0.5px; text-transform: uppercase; }
+    #gameover-subtitle { font-size: 15px; color: #aaa; margin-bottom: 25px; line-height: 1.5; font-style: italic; }
+    
+    #receipt-list { 
+      text-align: left; margin: 0 auto 30px auto; width: 100%; 
+      border-top: 1px dashed #444; border-bottom: 1px dashed #444; padding: 15px 0;
     }
-    button.restart-btn:hover { background: #eee; }
+    .list-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; font-size: 16px; color: #eee; font-weight: 500; }
+    .list-label { flex-grow: 1; overflow: hidden; white-space: nowrap; position: relative; }
+    .list-label::after { content: " ........................................................................."; color: #444; position: absolute; }
+    .list-count { font-weight: 800; color: #ff5252; padding-left: 10px; background: rgba(15,15,15,1); position: relative; z-index: 2; }
+
+    #about-modal { text-align: left; max-width: 600px; max-height: 85vh; overflow-y: auto; padding: 40px 50px; border-top: 6px solid #d32f2f; }
+    #about-modal h2 { margin-top: 0; color: #111; font-weight: 900; font-size: 28px; margin-bottom: 15px; }
+    #about-modal p { color: #444; line-height: 1.6; margin-bottom: 20px; font-size: 15px; }
+    #about-modal h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin: 30px 0 15px 0; color: #888; border-bottom: 1px solid #eee; padding-bottom: 5px; font-weight: 800; }
+    
+    .source-list { list-style: none; padding: 0; margin: 0; font-size: 14px; color: #555; }
+    .source-list li { margin-bottom: 12px; padding-left: 15px; border-left: 3px solid #d32f2f; line-height: 1.4; }
+    .source-list a { color: #d32f2f; text-decoration: none; font-weight: 700; }
+    .source-list a:hover { text-decoration: underline; background: #fff0f0; }
+    
+    .close-btn-corner { position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 28px; cursor: pointer; color: #ccc; line-height: 1; transition: color 0.2s; }
+    .close-btn-corner:hover { color: #d32f2f; }
+
+    .btn-main {
+      padding: 16px 36px; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+      border: none; border-radius: 50px; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s;
+      width: 100%; display: block;
+    }
+    .btn-danger { background: #d32f2f; color: white; box-shadow: 0 4px 15px rgba(211, 47, 47, 0.4); }
+    .btn-danger:hover { background: #b71c1c; transform: translateY(-2px); }
+    
+    .btn-restart { background: white; color: black; box-shadow: 0 4px 15px rgba(255,255,255,0.1); }
+    .btn-restart:hover { background: #eee; transform: translateY(-2px); }
+    
+    .btn-return { background: #f0f0f0; color: #333; margin-top: 30px; box-shadow: none; }
+    .btn-return:hover { background: #e0e0e0; transform: translateY(-1px); }
+
   </style>
 </head>
 <body>
 
-<div id="ui-container">
-  <h1>Blind Zone Test</h1>
-  <div class="flavor-text">
-    The driver is late. The kids are playing.
-    <br><br>
-    <strong>Pack as many children into the blind zone as possible so the driver can leave without seeing them.</strong>
+<div id="hud-top">
+  <div class="brand">
+    <h1>BLIND ZONE</h1>
+    <span>ADVOCACY SIMULATOR</span>
   </div>
   
-  <div class="controls-hint">
-    Press <span class="key-badge">S</span> to Sit / Stand
+  <div class="score-container">
+    <div class="score-val" id="scoreDisplay">0</div>
+    <div class="score-label">Kids Hidden</div>
   </div>
 
-  <div class="stat-row">
-    <span>Blind Distance:</span>
-    <span class="stat-val" id="distDisplay">--</span>
+  <div class="right-controls">
+    <button class="btn-about" onclick="toggleAbout(true)">
+      <span class="icon">?</span> About
+    </button>
+    <select id="vehicleSelect" class="vehicle-selector" onchange="changeVehicle()"></select>
   </div>
-  <div class="big-score" id="scoreDisplay">0</div>
-  <div class="score-label">Kids Hidden</div>
+</div>
 
-  <div id="queue-container">
-    <div class="queue-title">NEXT UP:</div>
-    <div id="queue-visuals"></div>
-  </div>
+<div id="sidebar-right">
+  <div class="panel-title">Next Up</div>
+  <div id="queue-visuals"></div> <div class="key-hint">Press <span class="key">S</span><br>to Sit / Stand</div>
+</div>
+
+<div id="overlay-container">
   
-  <div style="font-size: 11px; color: #aaa; margin-top: 15px; line-height: 1.3;">
-    <span style="color: blue;">Blue</span> = Safe.<br>
-    <span style="color: #d32f2f;">Red</span> = Too high (Cannot place).<br>
+  <div id="warning-card" class="modal-card">
+    <div class="warning-text">Stop! If you add the next child, the driver might see them and won't be able to leave.</div>
+    <button class="btn-main btn-danger" onclick="startChaosSequence()">Drive away while you still can</button>
   </div>
-</div>
 
-<div id="controls">
-  <select id="vehicleSelect" onchange="changeVehicle()"></select>
-</div>
+  <div id="gameover-card" class="modal-card">
+    <h2>DRIVER SPOTTED YOU</h2>
+    <div id="gameover-subtitle">Congratulations, you ensured the driver wouldn't be inconvenienced by the sight of:</div>
+    <div id="receipt-list"></div>
+    <button class="btn-main btn-restart" onclick="resetSim()">Try Again</button>
+  </div>
 
-<div id="full-overlay">
-  <div class="full-text">Stop! If you add any more children, the driver might see them and won't be able to leave.</div>
-  <button class="drive-btn" onclick="startChaosSequence()">Drive away while you still can</button>
-</div>
+  <div id="about-modal" class="modal-card">
+    <button class="close-btn-corner" onclick="toggleAbout(false)">&times;</button>
+    <h2>About The Challenge</h2>
+    <p>
+      This interactive tool visualizes the "Frontover" danger posed by modern SUVs and Trucks. 
+      Millions of vehicles have front blind zones large enough to hide dozens of children, yet remain perfectly legal on our roads.
+    </p>
+    <p>
+      The goal of this "game" is to highlight the absurdity of these blind zones by challenging you to pack as many children into them as possible before they become visible to the driver.
+    </p>
+    
+    <h3>Data Sources</h3>
+    <ul class="source-list">
+      <li><strong>Vehicle Blind Zones:</strong> Based on testing by <a href="https://www.wthr.com/article/news/investigations/13-investigates/13-investigates-millions-vehicles-have-unexpected-dangerous-front-blind-zone/531-9521c471-3bc1-4b55-b860-3363f0954b3b" target="_blank">WTHR 13 Investigates</a> and <a href="https://www.consumerreports.org/car-safety/the-hidden-dangers-of-big-trucks/" target="_blank">Consumer Reports</a>.</li>
+      <li><strong>Child Dimensions:</strong> Anthropometric Reference Data from the <a href="https://www.cdc.gov/nchs/data/series/sr_03/sr03-046-508.pdf" target="_blank">CDC (United States)</a>.</li>
+      <li><strong>Further Reading:</strong> <a href="https://www.nbcnews.com/news/us-news/americas-cars-trucks-are-getting-bigger-are-front-blind-zones-children-rcna52109" target="_blank">NBC News: America's cars are getting bigger</a>.</li>
+    </ul>
 
-<div id="game-over">
-  <h2 id="go-title">Driver Spotted You!</h2>
-  <div id="go-subtitle">Congratulations, you ensured the driver wouldn't be inconvenienced by the sight of:</div>
-  <div id="go-list"></div>
-  <button class="restart-btn" onclick="resetSim()">Try Again</button>
+    <button class="btn-main btn-return" onclick="toggleAbout(false)">Close</button>
+  </div>
+
 </div>
 
 <script>
-const SCALE = 40; 
+/* =========================================
+   1. CONFIGURATION & DATA
+   ========================================= */
+const SCALE = 48; // 48 pixels = 1 foot
 const GROUND_OFFSET = 50;
 
+// Vehicle Data
 const vehicles = {
-  "Cadillac Escalade": { blindFt: 10.17, hoodH: 4.8 },
-  "Ford F150":         { blindFt: 9.58,  hoodH: 4.6 },
-  "Ford Explorer":     { blindFt: 8.42,  hoodH: 4.2 },
-  "Jeep Renegade":     { blindFt: 7.08,  hoodH: 3.9 },
-  "GMC Terrain":       { blindFt: 5.67,  hoodH: 3.8 },
-  "Honda Odyssey":     { blindFt: 5.67,  hoodH: 3.6 },
-  "Toyota Camry":      { blindFt: 3.25,  hoodH: 2.8 }
+  "Cadillac Escalade": { blindFt: 10.17, hoodH: 4.8, type: "SUV" },
+  "Ford F150":         { blindFt: 9.58,  hoodH: 4.6, type: "TRUCK" },
+  "Ford Explorer":     { blindFt: 8.42,  hoodH: 4.2, type: "SUV" },
+  "Jeep Renegade":     { blindFt: 7.08,  hoodH: 3.9, type: "SUV" },
+  "GMC Terrain":       { blindFt: 5.67,  hoodH: 3.8, type: "SUV" },
+  "Honda Odyssey":     { blindFt: 5.67,  hoodH: 3.6, type: "VAN" },
+  "Toyota Camry":      { blindFt: 3.25,  hoodH: 2.8, type: "SEDAN" }
 };
 
+// Child Data
+// !!! UPDATE HERE FOR SVGs !!!
+// 1. Upload your SVG to your project folder.
+// 2. Paste the filename in 'srcStand' or 'srcSit'.
+// 3. If left null, it will default to the colored rectangle.
 const objects = [
-  { label: "Toddler (2yo)", color: "#BA68C8", age: 2, stand: { w: 0.75, h: 2.8 }, sit: { w: 1.2,  h: 1.8 } },
-  { label: "Preschooler (4yo)", color: "#E91E63", age: 4, stand: { w: 0.8, h: 3.3 }, sit: { w: 1.4, h: 2.0 } },
-  { label: "1st Grader (6yo)", color: "#3F51B5", age: 6, stand: { w: 0.9, h: 3.8 }, sit: { w: 1.6, h: 2.2 } },
-  { label: "2nd Grader (8yo)", color: "#2196F3", age: 8, stand: { w: 0.95, h: 4.2 }, sit: { w: 1.7,  h: 2.3 } }
+  { 
+    label: "Toddler", desc: "2yo", color: "#BA68C8", age: 2, 
+    stand: { w: 0.75, h: 2.8 }, sit: { w: 1.2, h: 1.8 },
+    srcStand: null, // e.g. "assets/toddler_stand.svg"
+    srcSit: null    // e.g. "assets/toddler_sit.svg"
+  },
+  { 
+    label: "Preschooler", desc: "4yo", color: "#E91E63", age: 4, 
+    stand: { w: 0.8, h: 3.3 }, sit: { w: 1.4, h: 2.0 },
+    srcStand: null,
+    srcSit: null
+  },
+  { 
+    label: "1st Grader", desc: "6yo", color: "#3F51B5", age: 6, 
+    stand: { w: 0.9, h: 3.8 }, sit: { w: 1.6, h: 2.2 },
+    srcStand: null,
+    srcSit: null
+  },
+  { 
+    label: "2nd Grader", desc: "8yo", color: "#2196F3", age: 8, 
+    stand: { w: 0.95, h: 4.2 }, sit: { w: 1.7, h: 2.3 },
+    srcStand: null,
+    srcSit: null
+  }
 ];
 
-const Engine = Matter.Engine, World = Matter.World, Bodies = Matter.Bodies, Runner = Matter.Runner, Body = Matter.Body;
+/* =========================================
+   2. GLOBAL STATE & PHYSICS SETUP
+   ========================================= */
+const Engine = Matter.Engine, World = Matter.World, Bodies = Matter.Bodies, Body = Matter.Body, Runner = Matter.Runner;
 
 let engine, world;
 let ground, carBody;
@@ -176,9 +245,35 @@ let objQueue = [];
 let gameState = "PLAYING"; 
 let ghostPos = { x: 0, y: 0, valid: false, visible: false };
 let isSitting = false; 
+let isAboutOpen = false;
+
+/* =========================================
+   3. EXPOSED UI FUNCTIONS
+   ========================================= */
+window.toggleAbout = function(show) {
+  isAboutOpen = show;
+  let modal = document.getElementById('about-modal');
+  if(modal) modal.style.display = show ? 'block' : 'none';
+};
+window.startChaosSequence = startChaosSequence;
+window.resetSim = resetSim;
+window.changeVehicle = changeVehicle;
+
+/* =========================================
+   4. P5.JS LIFECYCLE (Preload, Setup, Draw)
+   ========================================= */
+
+// Preload is vital for SVGs/Images. It runs before setup.
+function preload() {
+  for (let obj of objects) {
+    if (obj.srcStand) obj.loadedStand = loadImage(obj.srcStand);
+    if (obj.srcSit)   obj.loadedSit   = loadImage(obj.srcSit);
+  }
+}
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
+  
   engine = Engine.create();
   world = engine.world;
   engine.constraintIterations = 4;
@@ -191,7 +286,6 @@ function setup() {
   let sel = document.getElementById('vehicleSelect');
   for(let v in vehicles) sel.add(new Option(v, v));
   sel.value = currentVeh;
-  changeVehicle();
   
   for(let i=0; i<4; i++) objQueue.push(floor(random(objects.length)));
   updateQueueUI();
@@ -199,93 +293,177 @@ function setup() {
   Runner.run(Runner.create(), engine);
 }
 
-function keyPressed() {
-  if (key === 's' || key === 'S') isSitting = !isSitting;
-}
-
 function draw() {
-  background(245);
+  background(244, 244, 249);
+  
   let veh = vehicles[currentVeh];
   let zoneLenPx = veh.blindFt * SCALE;
   let groundY = height - GROUND_OFFSET;
-  let bumperX = 400; 
+  let bumperX = width * 0.35; 
   let zoneEndX = bumperX + zoneLenPx;
   
-  // --- 1. Draw Blind Zone ---
+  // A. Draw Blind Zone Overlay
   if(gameState !== "DRIVING" && gameState !== "GAMEOVER") {
-    let eyeX = bumperX - (2 * SCALE); 
-    let eyeY = groundY - (veh.hoodH * SCALE) - (2.0 * SCALE);
-    noStroke(); fill(255, 0, 0, 20); 
-    triangle(eyeX, eyeY, bumperX, groundY, zoneEndX, groundY);
-    stroke(255, 0, 0); strokeWeight(4);
-    line(bumperX, groundY, zoneEndX, groundY);
+    drawBlindZoneOverlay(bumperX, groundY, zoneEndX, veh);
   }
 
-  // --- 2. Draw Vehicle ---
+  // B. Draw Vehicle
   if(gameState === "DRIVING" && carBody) {
     let pos = carBody.position;
-    push();
-    translate(pos.x, pos.y);
-    rotate(carBody.angle);
-    noStroke(); fill(40);
-    rectMode(CENTER);
-    rect(0, 0, 400, veh.hoodH * SCALE + 50); 
-    fill(0); 
-    ellipse(-100, (veh.hoodH * SCALE + 50)/2, 65, 65);
-    ellipse(100, (veh.hoodH * SCALE + 50)/2, 65, 65);
+    push(); translate(pos.x, pos.y); rotate(carBody.angle);
+    drawProceduralCar(0, 0, veh, true);
     pop();
   } else {
-    noStroke(); fill(40);
-    rect(0, groundY - veh.hoodH*SCALE, bumperX, veh.hoodH*SCALE);
-    fill(30); rect(0, groundY - veh.hoodH*SCALE - 70, bumperX - 80, 70);
-    fill(0); ellipse(bumperX - 55, groundY, 65, 65); ellipse(bumperX - 240, groundY, 65, 65);
-    stroke(100); strokeWeight(1); line(bumperX, groundY, bumperX, groundY - veh.hoodH*SCALE);
+    drawProceduralCar(bumperX, groundY, veh, false);
   }
 
-  // --- 3. Draw Objects ---
+  // C. Draw Objects (Children)
   let currentScore = 0;
   for (let b of boxes) {
     let pos = b.body.position;
     let type = b.type;
     let dims = b.isSitting ? type.sit : type.stand;
-    
     if(gameState === "PLAYING") currentScore++;
-
-    fill(type.color); stroke(0,0,0,80); strokeWeight(1);
     push(); translate(pos.x, pos.y); rotate(b.body.angle);
-    rectMode(CENTER); rect(0, 0, dims.w*SCALE, dims.h*SCALE);
-    fill(255,255,255, 220); noStroke(); textSize(10); textAlign(CENTER, CENTER);
-    let label = type.label.split(' ')[0] + (b.isSitting ? "\n(Sit)" : "");
-    text(label, 0, 0);
+    // Updated: Pass the full 'type' object, not just color
+    drawMeeple(0, 0, dims.w*SCALE, dims.h*SCALE, type, b.isSitting);
     pop();
   }
 
-  fill(80); noStroke(); rect(0, groundY, width, GROUND_OFFSET);
+  // D. Floor & HUD Updates
+  fill(50); noStroke(); rect(0, groundY, width, GROUND_OFFSET);
   
   if (gameState === "PLAYING") {
     document.getElementById('scoreDisplay').innerText = currentScore;
-    if(objQueue.length > 0) {
+    if(objQueue.length > 0 && !isAboutOpen) {
       let nextObj = objects[objQueue[0]];
-      drawGhost(bumperX, zoneEndX, groundY, bumperX-(2*SCALE), groundY-veh.hoodH*SCALE-80, (groundY-(groundY-veh.hoodH*SCALE-80))/(zoneEndX-(bumperX-80)), nextObj);
+      let eX = bumperX - (2*SCALE); 
+      let eY = groundY - (veh.hoodH*SCALE) - (2.0 * SCALE);
+      let slope = (groundY - eY) / (zoneEndX - eX);
+      drawGhost(bumperX, zoneEndX, groundY, eX, eY, slope, nextObj);
     }
   }
 }
 
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  World.remove(world, ground);
+  ground = Bodies.rectangle(width/2, height, width, 100, { isStatic: true });
+  World.add(world, ground);
+}
+
+/* =========================================
+   5. INPUT HANDLING
+   ========================================= */
+function keyPressed() {
+  if ((key === 's' || key === 'S') && !isAboutOpen) {
+    isSitting = !isSitting;
+    updateQueueUI();
+    setTimeout(checkIfNextPieceFits, 50);
+  }
+}
+
+function mousePressed() {
+  if (gameState !== "PLAYING") return;
+  if (isAboutOpen) return;
+  if (mouseY < 80 || (mouseX > width - 160 && mouseY > 100)) return;
+  if (ghostPos.visible) return; 
+  
+  if(ghostPos.valid) {
+    let typeIndex = objQueue.shift();
+    let next = objects[typeIndex];
+    objQueue.push(floor(random(objects.length)));
+    updateQueueUI();
+    spawnObject(ghostPos.x, ghostPos.y, next, isSitting);
+    setTimeout(checkIfNextPieceFits, 50); 
+  }
+}
+
+/* =========================================
+   6. VISUAL HELPER FUNCTIONS (Rendering)
+   ========================================= */
+function drawBlindZoneOverlay(bumperX, groundY, zoneEndX, veh) {
+    let eyeX = bumperX - (2 * SCALE); 
+    let eyeY = groundY - (veh.hoodH * SCALE) - (2.0 * SCALE);
+    
+    noStroke(); fill(255, 50, 50, 20); 
+    triangle(eyeX, eyeY, bumperX, groundY, zoneEndX, groundY);
+    stroke(255, 50, 50); strokeWeight(4); line(bumperX, groundY, zoneEndX, groundY);
+    
+    // Distance Marker (Floor)
+    noStroke(); fill(200, 40, 40); textAlign(CENTER); textStyle(BOLD); textSize(13);
+    stroke(200, 40, 40, 100); strokeWeight(1);
+    line(bumperX, groundY, bumperX, groundY + 15);
+    line(zoneEndX, groundY, zoneEndX, groundY + 15);
+    line(bumperX, groundY + 15, zoneEndX, groundY + 15);
+    noStroke();
+    let ft = Math.floor(veh.blindFt);
+    let inch = Math.round((veh.blindFt - ft)*12);
+    text(`${ft}' ${inch}"`, (bumperX + zoneEndX)/2, groundY + 30);
+
+    // Hood Height Marker (Vertical)
+    let hPx = veh.hoodH * SCALE;
+    stroke(100); strokeWeight(1);
+    line(bumperX - 10, groundY, bumperX - 10, groundY - hPx);
+    line(bumperX - 15, groundY - hPx, bumperX - 5, groundY - hPx); 
+    line(bumperX - 15, groundY, bumperX - 5, groundY); 
+    
+    noStroke(); fill(100); textSize(12); textAlign(RIGHT);
+    text(`${veh.hoodH} ft`, bumperX - 20, groundY - hPx/2);
+}
+
+function drawProceduralCar(x, y, veh, isPhysicsBody) {
+  fill(40); noStroke();
+  let hoodW = 200; let cabinW = 120; let hPx = veh.hoodH * SCALE;
+  
+  if (isPhysicsBody) {
+    rectMode(CENTER); rect(0, 0, 400, hPx + 50);
+    fill(0); ellipse(-100, (hPx+50)/2, 60, 60); ellipse(100, (hPx+50)/2, 60, 60);
+    return;
+  }
+  fill(0); ellipse(x - 50, y, 65, 65); ellipse(x - 240, y, 65, 65);
+  fill(50); rect(x - hoodW, y - hPx, hoodW, hPx);
+  let cabinH = hPx + 60; if(veh.type === "SEDAN") cabinH = hPx + 40;
+  rect(x - hoodW - cabinW, y - cabinH, cabinW + 50, cabinH);
+  stroke(200); strokeWeight(2); line(x, y, x, y - hPx);
+  fill(200, 230, 255); noStroke();
+  quad(x - hoodW, y - hPx, x - hoodW + 20, y - hPx - 40, x - hoodW - 60, y - hPx - 40, x - hoodW - 60, y - hPx);
+}
+
+// UPDATED: Now supports SVGs or procedural fallback
+function drawMeeple(x, y, w, h, typeData, sitting) {
+  let img = sitting ? typeData.loadedSit : typeData.loadedStand;
+
+  // 1. If an image is loaded, draw it
+  if (img) {
+    imageMode(CENTER);
+    image(img, 0, 0, w, h);
+  } 
+  // 2. Otherwise, use the old procedural rectangle drawing
+  else {
+    rectMode(CENTER); noStroke(); fill(typeData.color);
+    let headSize = w * 0.7; let bodyH = h - headSize;
+    rect(0, (headSize/2), w, bodyH, 4);
+    ellipse(0, -(h/2) + (headSize/2), headSize, headSize);
+    fill(255); ellipse(w*0.15, -(h/2) + (headSize/2) - 2, 4, 4);
+    if(sitting) { fill(0,0,0,30); rect(w*0.3, (h/2)-5, w*0.3, 10); }
+  }
+}
+
+/* =========================================
+   7. CORE GAME LOGIC (Stacking & LOS)
+   ========================================= */
 function getBestY(gx, objW, objH, groundY, targetY) {
   let blockers = [];
   for(let b of boxes) {
     let dims = b.isSitting ? b.type.sit : b.type.stand;
-    let bW = dims.w * SCALE;
-    let bH = dims.h * SCALE;
-    let bPos = b.body.position;
-    let myLeft = gx - objW/2; let myRight = gx + objW/2;
-    if (myLeft < bPos.x + bW/2 - 0.5 && myRight > bPos.x - bW/2 + 0.5) {
+    let bW = dims.w * SCALE; let bH = dims.h * SCALE; let bPos = b.body.position;
+    if (gx - objW/2 < bPos.x + bW/2 - 0.5 && gx + objW/2 > bPos.x - bW/2 + 0.5) {
        blockers.push({ top: bPos.y - bH/2, bottom: bPos.y + bH/2 });
     }
   }
   blockers.sort((a, b) => a.top - b.top);
-  let validFloors = [];
-  let candidates = [groundY];
+  let validFloors = []; let candidates = [groundY];
   for(let b of blockers) candidates.push(b.top);
   
   for(let floorY of candidates) {
@@ -301,33 +479,47 @@ function getBestY(gx, objW, objH, groundY, targetY) {
   return validFloors[0] - objH/2;
 }
 
-function drawGhost(bumperX, zoneEndX, groundY, eyeX, eyeY, slope, next) {
+function drawGhost(bumperX, zoneEndX, groundY, eX, eY, slope, next) {
   let dims = isSitting ? next.sit : next.stand;
-  let objW = dims.w * SCALE;
-  let objH = dims.h * SCALE;
+  let objW = dims.w * SCALE; let objH = dims.h * SCALE;
   let gx = constrain(mouseX, bumperX + objW/2, zoneEndX - objW/2);
   let gy = getBestY(gx, objW, objH, groundY, mouseY);
   
   if(gy === null) { ghostPos = { valid: false, visible: true }; return; }
   
   let corners = [gx - objW/2, gx, gx + objW/2];
-  let visible = false;
-  let checkY = gy - objH/2;
-  // Recalc Eye coords
-  let veh = vehicles[currentVeh];
-  let eX = bumperX - (2*SCALE); let eY = groundY - (veh.hoodH*SCALE) - (2*SCALE);
-  let sl = (groundY - eY) / (zoneEndX - eX);
-  
-  for(let cx of corners) if(checkY < sl * (cx - eX) + eY) visible = true;
+  let visible = false; let checkY = gy - objH/2;
+  for(let cx of corners) if(checkY < slope * (cx - eX) + eY) visible = true;
   
   ghostPos = { x: gx, y: gy, valid: true, visible: visible };
   
   push(); translate(gx, gy);
-  if (visible) { stroke(255, 0, 0); fill(255, 0, 0, 40); } else { stroke(0, 0, 255); noFill(); }
-  strokeWeight(2); drawingContext.setLineDash(visible ? [] : [5,5]);
-  rectMode(CENTER); rect(0, 0, objW, objH);
-  stroke(0,0,0,50); drawingContext.setLineDash([]); line(0, objH/2, 0, groundY - gy);
-  noStroke(); fill(0); textSize(10); textAlign(CENTER); text(isSitting?"Sit":"Stand", 0,0);
+  
+  // Ghost Drawing (Uses SVGs if available)
+  if (visible) {
+     // Red tint if visible
+     tint(255, 50, 50, 180);
+     drawMeeple(0, 0, objW, objH, next, isSitting);
+  } else {
+     // Ghostly transparency if valid
+     tint(255, 255, 255, 150);
+     drawMeeple(0, 0, objW, objH, next, isSitting);
+  }
+  noTint(); // Reset tint for other draws
+
+  // Info Label
+  fill(50); noStroke(); textAlign(CENTER); textSize(12); textStyle(BOLD);
+  let stance = isSitting ? "Sit" : "Stand";
+  let hFt = (dims.h).toFixed(1);
+  let labelText = `${next.label} (${stance})`;
+  let subText = `${hFt} ft`;
+  
+  if(visible) { fill(200, 0, 0); text("VISIBLE", 0, -objH/2 - 35); }
+  
+  fill(30);
+  text(labelText, 0, -objH/2 - 20);
+  textStyle(NORMAL); textSize(11);
+  text(subText, 0, -objH/2 - 8);
   pop();
 }
 
@@ -335,7 +527,8 @@ function checkIfNextPieceFits() {
   let next = objects[objQueue[0]];
   let veh = vehicles[currentVeh];
   let groundY = height - GROUND_OFFSET;
-  let bumperX = 400; let zoneEndX = bumperX + veh.blindFt*SCALE;
+  let bumperX = width * 0.35;
+  let zoneEndX = bumperX + veh.blindFt*SCALE;
   let eX = bumperX - (2*SCALE); let eY = groundY - (veh.hoodH*SCALE) - (2*SCALE);
   let slope = (groundY - eY) / (zoneEndX - eX);
   
@@ -356,93 +549,74 @@ function checkIfNextPieceFits() {
   }
   if(!foundSpot) {
     gameState = "FULL";
-    document.getElementById('full-overlay').style.display = "block";
-  }
-}
-
-function mousePressed() {
-  if (gameState !== "PLAYING") return;
-  if (mouseX < 340 && mouseY < 300) return; 
-  if (ghostPos.visible) return;
-  if(ghostPos.valid) {
-    let typeIndex = objQueue.shift();
-    let next = objects[typeIndex];
-    objQueue.push(floor(random(objects.length)));
-    updateQueueUI();
-    spawnObject(ghostPos.x, ghostPos.y, next, isSitting);
-    setTimeout(checkIfNextPieceFits, 50); 
+    document.getElementById('warning-card').style.display = "block";
   }
 }
 
 function spawnObject(x, y, typeData, sitting) {
   let dims = sitting ? typeData.sit : typeData.stand;
   let box = Bodies.rectangle(x, y, dims.w*SCALE, dims.h*SCALE, {
-    isStatic: true, // STACKING MODE: FROZEN
+    isStatic: true, 
     friction: 1.0, frictionStatic: 10.0, restitution: 0.1, density: 0.002
   });
   World.add(world, box);
   boxes.push({ body: box, type: typeData, isSitting: sitting });
 }
 
+/* =========================================
+   8. GAME FLOW & CHAOS MODE
+   ========================================= */
 function updateQueueUI() {
   let container = document.getElementById('queue-visuals');
   container.innerHTML = '';
-  for(let i=0; i<2; i++) {
+  for(let i=0; i<3; i++) {
     let type = objects[objQueue[i]];
+    let dims = isSitting ? type.sit : type.stand;
+    let scale = 12; let w = dims.w * scale; let h = dims.h * scale;
+    
     let div = document.createElement('div');
-    let uiScale = 15; 
-    div.style.width = (type.stand.w * uiScale) + 'px';
-    div.style.height = (type.stand.h * uiScale) + 'px';
+    div.style.width = w + 'px'; div.style.height = h + 'px';
     div.style.backgroundColor = type.color;
-    div.style.border = '1px solid #333';
-    div.style.marginRight = '10px';
+    div.style.borderRadius = "4px"; div.style.border = "1px solid rgba(0,0,0,0.2)";
+    // Simple visual fallback for queue if no image in DOM
+    let head = document.createElement('div');
+    head.style.width = (w*0.6) + 'px'; head.style.height = (w*0.6) + 'px';
+    head.style.background = 'rgba(0,0,0,0.1)'; head.style.borderRadius = '50%';
+    head.style.margin = '2px auto';
+    div.appendChild(head);
     container.appendChild(div);
   }
 }
 
-// --- CHAOS SEQUENCE ---
 function startChaosSequence() {
-  document.getElementById('full-overlay').style.display = "none";
+  document.getElementById('warning-card').style.display = "none";
   gameState = "DRIVING";
-  
-  // 1. ACTIVATE MOON GRAVITY
   engine.gravity.y = 0.2; 
   
-  // 2. WAKE UP ALL KIDS
-  for(let b of boxes) {
-    Body.setStatic(b.body, false);
-  }
+  for(let b of boxes) Body.setStatic(b.body, false);
   
-  // 3. Create Juggernaut
   let veh = vehicles[currentVeh];
   let h = veh.hoodH * SCALE;
-  let bumperX = 400;
+  let bumperX = width * 0.35;
   let groundY = height - GROUND_OFFSET;
   
   carBody = Bodies.rectangle(bumperX - 200, groundY - (h/2) - 10, 400, h, {
-    density: 200, // HEAVY
-    friction: 0,
-    restitution: 0.5,
-    frictionAir: 0
+    density: 200, friction: 0, restitution: 0.5, frictionAir: 0
   });
   World.add(world, carBody);
-  
-  // 4. Launch
   Body.setVelocity(carBody, { x: 15, y: 0 }); 
   
-  // 5. Show Receipt Immediately
   showReceipt();
 }
 
 function showReceipt() {
-  // We keep game state as "DRIVING" visually, but trigger modal
   let stats = {};
   let safeCount = 0;
   let breakdown = [];
 
   for (let b of boxes) {
     safeCount++;
-    let label = b.type.label;
+    let label = b.type.label + " (" + b.type.desc + ")";
     if(!stats[label]) stats[label] = { count: 0, age: b.type.age };
     stats[label].count++;
   }
@@ -455,51 +629,39 @@ function showReceipt() {
     listHTML += `
       <div class="list-row">
         <div class="list-label">${item.label}</div>
+        <div class="list-dots"></div>
         <div class="list-count">${item.count}</div>
       </div>
     `;
   }
 
-  let el = document.getElementById('game-over');
-  let title = document.getElementById('go-title');
-  let listDiv = document.getElementById('go-list');
-  
-  title.innerText = `You Hid ${safeCount} Kids!`;
-  listDiv.innerHTML = listHTML;
+  let el = document.getElementById('gameover-card');
+  el.querySelector('h2').innerText = `YOU HID ${safeCount} KIDS!`;
+  document.getElementById('receipt-list').innerHTML = listHTML;
   el.style.display = "block";
-}
-
-function resetSim() {
-  engine.gravity.y = 1.0; // Reset gravity
-
-  for(let b of boxes) World.remove(world, b.body);
-  if(carBody) World.remove(world, carBody);
-  boxes = [];
-  carBody = null;
-  gameState = "PLAYING";
-  document.getElementById('game-over').style.display = 'none';
-  document.getElementById('full-overlay').style.display = 'none';
-  document.getElementById('scoreDisplay').innerText = "0";
-  objQueue = [];
-  for(let i=0; i<4; i++) objQueue.push(floor(random(objects.length)));
-  updateQueueUI();
 }
 
 function changeVehicle() {
   resetSim();
   let sel = document.getElementById('vehicleSelect');
   currentVeh = sel.value;
-  let v = vehicles[currentVeh];
-  let ft = Math.floor(v.blindFt);
-  let inch = Math.round((v.blindFt - ft)*12);
-  document.getElementById('distDisplay').innerText = `${ft}' ${inch}"`;
 }
 
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-  World.remove(world, ground);
-  ground = Bodies.rectangle(width/2, height, width, 100, { isStatic: true });
-  World.add(world, ground);
+function resetSim() {
+  engine.gravity.y = 1.0; 
+  for(let b of boxes) World.remove(world, b.body);
+  if(carBody) World.remove(world, carBody);
+  boxes = [];
+  carBody = null;
+  gameState = "PLAYING";
+  document.getElementById('gameover-card').style.display = 'none';
+  document.getElementById('warning-card').style.display = 'none';
+  document.getElementById('scoreDisplay').innerText = "0";
+  objQueue = [];
+  for(let i=0; i<4; i++) objQueue.push(floor(random(objects.length)));
+  updateQueueUI();
+  
+  setTimeout(checkIfNextPieceFits, 100);
 }
 </script>
 </body>
